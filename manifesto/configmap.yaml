@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microservices-config
+  namespace: tech-challenge
+data:
+  AUTH_SERVICE_URL: "http://auth-service"
+  FLAG_SERVICE_URL: "http://flag-service"
+  TARGETING_SERVICE_URL: "http://targeting-service"
+  EVALUATION_SERVICE_URL: "http://evaluation-service"
+  ANALYTICS_SERVICE_URL: "http://analytics-service"

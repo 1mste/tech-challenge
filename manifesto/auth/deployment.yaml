@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: auth-service
+  namespace: tech-challenge
+#namespace declaro em "namespace.yaml"
+spec:
+  replicas: 2
+# Replica de PoD para ter redundancia
+  selector:
+    matchLabels:
+      app: auth-service
+      #igual ao service.yaml
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: <IMAGEM_ECR>
+          ports:
+            - containerPort: 8080
+          env:
+            - name: port
+              value: "8080"
+          envFrom:
+            - configMapRef:
+              name: auth-config
+            - secretRef:
+              name: auth-secret
+#Use sempre Requests e Limits nos Deployments.ABAIXO"
+          resources:
+            requests:
+              cpu: "100m" #50m
+              memory: "128Mi" #64Mi
+
+            limits:
+              cpu: "500m" #250m
+              memory: "512Mi" #128Mi
+#Use sempre Requests e Limits nos Deployments. ACIMA"
+#"Esse Pod esta pronto para receber trafego?" ABAIXO#
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10 #2
+            periodSeconds: 10 #5
+            #Jose Neto Copia
+            timeoutSeconds: 1
+            failureThreshold: 3
+#"Esse processo ainda esta saudavel?" "Use sempre Readiness e/ou LivenessProbe sempre que possivel."
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+        #Jose Neto Copia
+            timeoutSeconds: 1
+            failureThreshold: 3
