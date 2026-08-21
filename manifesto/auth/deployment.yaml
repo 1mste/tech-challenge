@@ -3,7 +3,7 @@ kind: Deployment
 
 metadata:
   name: auth-service
-  namespace: tech-challenge
+  namespace: tech-challenge2
 #namespace declaro em "namespace.yaml"
 spec:
   replicas: 2
@@ -27,9 +27,9 @@ spec:
               value: "8080"
           envFrom:
             - configMapRef:
-              name: auth-config
+                name: auth-config
             - secretRef:
-              name: auth-secret
+                name: auth-secret
 #Use sempre Requests e Limits nos Deployments.ABAIXO"
           resources:
             requests:
