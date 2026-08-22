@@ -4,6 +4,7 @@ metadata:
   name: microservices-ingress
   namespace: tech-challenge2
 spec:
+  ingressClassName: nginx
   rules:
     - host: microservices.local #colocar dominio depois
       http:

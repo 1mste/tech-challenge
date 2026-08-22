@@ -1,0 +1,6 @@
+secrets.yaml
+.\manifesto\auth\
+.\manifesto\evalution\
+.\manifesto\flag\
+.\manifesto\servico-service\
+.\manifesto\targeting-service\

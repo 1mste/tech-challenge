@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-config
+  namespace: tech-challenge2
+
+data:
+  PORT: "8005"
+  AWS_REGION: "<Colocar Regiao AWS>"
+  AWS_SQS_URL: "<Colocar URL>"
+  AWS_DYNAMODB_TABLE: "<Colocar nome Tabela>"

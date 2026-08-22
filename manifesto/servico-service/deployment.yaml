@@ -1,48 +1,49 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auth-service
+  name: evalution-service
   namespace: tech-challenge2
 
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: auth-service
+      app: evalution-service
   template:
     metadata:
       labels:
-        app: auth-service    
+        app: evalution-service
     spec:
+
       containers:
-        - name: auth-service
+        - name: evalution-service
           image: <IMAGEM_ECR>
           ports:
-            - containerPort: 8001
+            - containerPort: 8004
           envFrom:
             - configMapRef:
-                name: auth-config
+                name: evalution-config
             - secretRef:
-                name: auth-secret
+                name: evalution-secret
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "100m" #50m
+              memory: "128Mi" #64Mi
             limits:
-              cpu: "500m"
-              memory: "512Mi" 
+              cpu: "500m" #250m
+              memory: "512Mi" #128Mi
           readinessProbe:
             httpGet:
               path: /health
-              port: 8001
-            initialDelaySeconds: 10
-            periodSeconds: 10 
+              port: 8004
+            initialDelaySeconds: 10 #2
+            periodSeconds: 10 #5
             timeoutSeconds: 1
             failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health
-              port: 8001
+              port: 8004ss
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 1
