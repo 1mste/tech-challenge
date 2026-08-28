@@ -1,0 +1,28 @@
+# evaluation-service/Dockerfile
+
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /evaluation-service .
+
+FROM alpine:3.22
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=builder /evaluation-service .
+
+USER appuser
+
+EXPOSE 8080
+
+CMD ["./evaluation-service"]
