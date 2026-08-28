@@ -43,7 +43,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8004ss
+              port: 8004
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 1
