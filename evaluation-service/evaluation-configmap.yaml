@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evaluation-config
+  namespace: tech-challenge2 #depende do cluster
+
+data:
+  PORT: "8004"
+  REDIS_URL: "<Colocar ElastiCache AWS>"
+  FLAG_SERVICE_URL: "http://flag-service" #Se necessario adicionar :8002
+  TARGETING_SERVICE_URL: "http://targeting-service" #Se necessario adicionar :8003
+  AWS_REGION: "<Colocar regiao AWS>" #Colocar regiao AWS
+  AWS_SQS_URL: "<url qos AWS>" #Endereco da fila AWS

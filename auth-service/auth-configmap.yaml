@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: tech-challenge2 #depende do cluster
+
+data:
+  PORT: "8001"
