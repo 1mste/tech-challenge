@@ -9,35 +9,35 @@ spec:
     - host: microservices.local #colocar dominio depois
       http:
         paths:
-          - path: /auth
+          - path: /auth #nome da pasta
             pathType: Prefix
             backend:
               service:
                 name: auth-service
                 port:
                   number: 80
-          - path: /flags
+          - path: /flag #nome da pasta
             pathType: Prefix
             backend:
               service:
                 name: flag-service
                 port:
                   number: 80
-          - path: /targeting
+          - path: /targeting #nome da pasta
             pathType: Prefix
             backend:
               service:
                 name: targeting-service
                 port:
                   number: 80
-          - path: /evaluation
+          - path: /evaluation #nome da pasta
             pathType: Prefix
             backend:
               service:
                 name: evaluation-service
                 port:
                   number: 80
-          - path: /analytics
+          - path: /analytics #nome da pasta
             pathType: Prefix
             backend:
               service:

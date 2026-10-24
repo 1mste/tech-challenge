@@ -1,26 +1,20 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
-
 metadata:
-  name: analytics-service-scaledobject #kubectl get scaledobject -n tech-challenge2
+  name: analytics-service-scaledobject
   namespace: tech-challenge2
-
 spec:
   scaleTargetRef:
     name: analytics-service
-#Numero de pod, min e max
-  minReplicaCount: 0
+  minReplicaCount: 1
   maxReplicaCount: 10
-
   pollingInterval: 30
   cooldownPeriod: 300
-
   triggers:
     - type: aws-sqs-queue
       authenticationRef:
         name: analytics-keda-auth
-
       metadata:
-        queueURL: "https://seilaoq.amazonaws.com/../fila" #Dados da fila SQS-AWS
+        queueURL: "<AWS_SQS_URL>"
         queueLength: "5"
-        awsRegion: ""
+        awsRegion: "<AWS_REGION>"
