@@ -6,8 +6,8 @@ metadata:
   namespace: evaluation-service
 data:
   PORT: "8004"
-  REDIS_URL: "<REDIS_URL>"
-  AWS_REGION: "<AWS_REGION>"
-  AWS_SQS_URL: "<AWS_SQS_URL>"
+  REDIS_URL: "redis://togglemaster-dev-redis.pexudf.0001.use1.cache.amazonaws.com:6379/0"
+  AWS_REGION: "us-east-1"
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/698172256617/togglemaster-analytics-events"
   FLAG_SERVICE_URL: "http://flag-service.flag-service.svc.cluster.local"
   TARGETING_SERVICE_URL: "http://targeting-service.targeting-service.svc.cluster.local"

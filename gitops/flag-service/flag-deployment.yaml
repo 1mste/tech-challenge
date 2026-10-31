@@ -17,7 +17,7 @@ spec:
       containers:
         - name: flag-service
           # O pipeline de CI reescreve ESTA linha com a tag do commit.
-          image: <IMAGEM_ECR>
+          image: 698172256617.dkr.ecr.us-east-1.amazonaws.com/flag-service:latest
           ports:
             - containerPort: 8002
           envFrom:

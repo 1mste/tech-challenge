@@ -22,6 +22,6 @@ spec:
       authenticationRef:
         name: analytics-keda-auth
       metadata:
-        queueURL: "<AWS_SQS_URL>"
+        queueURL: "https://sqs.us-east-1.amazonaws.com/698172256617/togglemaster-analytics-events"
         queueLength: "5"
-        awsRegion: "<AWS_REGION>"
+        awsRegion: "us-east-1"
