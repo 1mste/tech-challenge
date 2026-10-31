@@ -166,22 +166,30 @@ fi
 # ============================ 6. SEGREDOS ==================================
 step "Criando as Secrets no cluster"
 ./scripts/create-secrets.sh >/dev/null
-ok "$(kubectl get secrets -A --no-headers 2>/dev/null | grep -c -- '-secret') Secrets criadas"
+ok "$(kubectl get secrets -A --no-headers 2>/dev/null | grep -cE '^(auth|flag|targeting|evaluation)-service ') Secrets de aplicacao criadas"
 
-# ============================ 7. MANIFESTOS ================================
+# ============================ 7. SCHEMA DOS BANCOS =========================
+step "Criando as tabelas nos 3 bancos PostgreSQL"
+# Nenhuma aplicacao cria as proprias tabelas. Sem isto os pods sobem
+# Running e Healthy, mas qualquer chamada de verdade responde 500.
+./scripts/apply-schema.sh | grep -E "✓|✗" | sed 's/^/    /'
+
+# ============================ 8. MANIFESTOS ================================
 step "Preenchendo os enderecos nos manifestos"
 ./scripts/render-gitops.sh | grep -E "^   " | sed 's/^/    /' || true
 ok "manifestos preenchidos"
 
-# ============================ 8. GITOPS ====================================
+# ============================ 9. GITOPS ====================================
 step "Publicando os manifestos e ligando o ArgoCD"
 
+# Os manifestos preenchidos precisam chegar ao GitHub: o ArgoCD le de la,
+# nao do disco. Mas quem commita e voce — o script so avisa.
 if ! git diff --quiet -- gitops/ 2>/dev/null; then
-  git add gitops/
-  git -c user.email="$(git config user.email || echo infra@local)" \
-      -c user.name="$(git config user.name || echo infra)" \
-      commit -q -m "chore: enderecos da infraestrutura provisionada"
-  ok "alteracoes commitadas"
+  info "ha manifestos preenchidos AINDA NAO COMMITADOS. Para o ArgoCD ve-los:"
+  info "  git add gitops/ && git commit -m 'chore: enderecos da infraestrutura' && git push"
+  NEED_COMMIT=1
+else
+  NEED_COMMIT=0
 fi
 
 REMOTE=$(git remote get-url origin 2>/dev/null || true)
@@ -198,9 +206,12 @@ elif [ -z "$REMOTE" ]; then
   info "ATENCAO: o repositorio nao tem remoto. Publique antes de ligar o ArgoCD:"
   info "  gh repo create SUA-ORG/tech-challenge --private --source=. --push"
 else
-  git push -q 2>/dev/null && ok "enviado para $REMOTE" || info "push falhou — envie manualmente"
   kubectl apply -f gitops/argocd/ >/dev/null
   ok "5 Applications registradas no ArgoCD"
+  if [ "${NEED_COMMIT:-0}" = "1" ] || ! git diff --quiet origin/main..HEAD -- gitops/ 2>/dev/null; then
+    info "ATENCAO: o ArgoCD vai falhar com 'app path does not exist' ate voce"
+    info "dar push. Ele le de $REMOTE, nao do seu disco."
+  fi
 fi
 
 # ============================ RESUMO =======================================

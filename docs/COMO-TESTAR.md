@@ -32,6 +32,7 @@ quando a carga aumenta.
 - [Passo 5 — Conectar no cluster](#passo-5--conectar-no-cluster)
 - [Passo 6 — Instalar os componentes](#passo-6--instalar-os-componentes-do-cluster-)
 - [Passo 7 — Criar as senhas](#passo-7--criar-as-senhas-no-cluster)
+- [Passo 7b — Criar as tabelas](#passo-7b--criar-as-tabelas-nos-bancos)
 - [Passo 8 — Preencher os endereços](#passo-8--preencher-os-endereços-nos-manifestos)
 - [Passo 9 — Ligar o ArgoCD](#passo-9--ligar-o-argocd-nos-5-serviços)
 
@@ -214,6 +215,7 @@ alguém mexer no ambiente por fora, ele **desfaz**. Isso é intencional.
 |---|---|
 | `provision-all.sh` | **Faz os Passos 3 a 9 de uma vez** |
 | `create-secrets.sh` | Passo 7 — leva as senhas do cofre da AWS para o ambiente |
+| `apply-schema.sh` | Cria as tabelas nos 3 bancos (as aplicações não criam sozinhas) |
 | `render-gitops.sh` | Passo 8 — preenche os endereços nos arquivos de configuração |
 | `outputs.sh` | A qualquer momento — mostra todos os endereços |
 | `destroy-all.sh` | Passo 11 — **desliga tudo**, na ordem certa |
@@ -401,6 +403,24 @@ Devem aparecer 4: `auth-secret`, `flag-secret`, `targeting-secret` e
 
 > O `analytics-service` não aparece — e está certo. Ele acessa a AWS por
 > crachá automático (IRSA), sem senha nenhuma.
+
+---
+
+## Passo 7b — Criar as tabelas nos bancos
+
+As aplicações **não criam as próprias tabelas**. Os arquivos em `postgres/`
+só são aplicados sozinhos pelo `docker compose`, no seu computador. Na AWS,
+é preciso rodar:
+
+```bash
+./scripts/apply-schema.sh
+```
+
+**✅ Como saber se deu certo:** termina com `Os 3 schemas foram aplicados.`
+
+> **Por que isso engana:** sem as tabelas, os pods sobem `Running` e
+> `Healthy` — porque o `/health` não consulta o banco. O erro só aparece na
+> primeira chamada de verdade, como um 500 sem explicação.
 
 ---
 
@@ -698,7 +718,7 @@ Os itens **1 e 4** você já consegue gravar hoje, com este guia. Os itens
 
 | Pendência | Efeito se esquecer |
 |---|---|
-| Aplicar o SQL nos 3 bancos (`postgres/*/*.sql`) | Os programas sobem, mas falham ao gravar: as tabelas não existem |
+| ~~Aplicar o SQL nos 3 bancos~~ | ✅ resolvido: `./scripts/apply-schema.sh`, já incluído no `provision-all.sh` |
 | Apontar o `repoURL` das Applications para o seu repositório | O ArgoCD não encontra os arquivos (Passo 8 avisa) |
 
 ### Resumindo
