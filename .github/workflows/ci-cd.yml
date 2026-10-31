@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Configurar Go (para Auth, Evaluation, Flag, Targeting)
+      - name: Configurar Go (para demais serviços)
         if: matrix.service != 'analytics-service'
         uses: actions/setup-go@v5
         with:
@@ -34,7 +34,6 @@ jobs:
         run: |
           cd ${{ matrix.service }}
           pip install -r requirements.txt || true
-          # Se houver testes com pytest, adicione aqui
 
       - name: 1. Build & Unit Test (Go)
         if: matrix.service != 'analytics-service'
@@ -45,11 +44,20 @@ jobs:
             go test -v ./... || true
           fi
 
-      - name: 2. Linter / Static Analysis
+      - name: 2. Linter / Static Analysis (Python - Flake8)
+        if: matrix.service == 'analytics-service'
         run: |
-          echo "Executando linter/análise para ${{ matrix.service }}..."
+          echo "Rodando flake8 no analytics-service..."
           cd ${{ matrix.service }}
-          # Verificação básica de sintaxe ou linter específico da stack
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+
+      - name: 2. Linter / Static Analysis (Go - golangci-lint)
+        if: matrix.service != 'analytics-service'
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.55.2
+          working-directory: ${{ matrix.service }}
 
       - name: 3. Security Scan - SCA & SAST (Trivy)
         uses: aquasecurity/trivy-action@master
@@ -67,4 +75,4 @@ jobs:
           format: 'json'
           output: 'trivy-results.json'
           severity: 'CRITICAL'
-          exit-code: '1' # Falha o pipeline se encontrar vulnerabilidade CRITICAL conforme exigido no projeto
+          exit-code: '1'
