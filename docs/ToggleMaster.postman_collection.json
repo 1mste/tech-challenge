@@ -1,0 +1,153 @@
+{
+  "info": {
+    "_postman_id": "7f3a1c9e-2b6d-4a0e-9c11-togglemaster0001",
+    "name": "ToggleMaster - Tech Challenge Fase 2",
+    "description": "Coleção de testes do ToggleMaster (feature flags) rodando no EKS via NLB/nginx-ingress.\n\nVariáveis (aba Variables): baseUrl, apiKey, masterKey.\n- apiKey: chave já semeada no auth_db, usada como Bearer em flag/targeting.\n- masterKey: só para POST /auth/admin/keys (criar novas keys).\n\nRoteamento: auth/targeting/evaluation passam pelo ingress com rewrite (/$2); flag usa /flags sem rewrite. analytics é worker (sem API) — valide via DynamoDB (tabela ToggleMasterAnalytics) ou logs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{apiKey}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://a435a6597dac743008c633fee4ae6dee-f00f1d4f15f2a4ef.elb.us-east-1.amazonaws.com", "type": "string" },
+    { "key": "apiKey", "value": "tm_key_b5e32236ae859a6344c0826973b5964a2ff75def38109b31", "type": "string" },
+    { "key": "masterKey", "value": "mk_e2f403948dc73ffdd90d4692a798392de6dfb33d121a0181", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Validar chave (GET /auth/validate)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/validate", "host": ["{{baseUrl}}"], "path": ["auth", "validate"] },
+            "description": "Valida a apiKey (Bearer). 200 = válida, 401 = inválida/ausente."
+          }
+        },
+        {
+          "name": "Criar nova API key (POST /auth/admin/keys)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{masterKey}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"minha-app\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/admin/keys", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "keys"] },
+            "description": "Usa o masterKey. Retorna 201 com a key em texto plano (aparece só uma vez)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Flag",
+      "item": [
+        {
+          "name": "Criar flag (POST /flags)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"new-checkout\",\n  \"description\": \"novo checkout\",\n  \"is_enabled\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/flags", "host": ["{{baseUrl}}"], "path": ["flags"] }
+          }
+        },
+        {
+          "name": "Listar flags (GET /flags)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/flags", "host": ["{{baseUrl}}"], "path": ["flags"] }
+          }
+        },
+        {
+          "name": "Buscar flag (GET /flags/:name)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/flags/new-checkout", "host": ["{{baseUrl}}"], "path": ["flags", "new-checkout"] }
+          }
+        },
+        {
+          "name": "Atualizar flag (PUT /flags/:name)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"is_enabled\": false\n}" },
+            "url": { "raw": "{{baseUrl}}/flags/new-checkout", "host": ["{{baseUrl}}"], "path": ["flags", "new-checkout"] }
+          }
+        },
+        {
+          "name": "Deletar flag (DELETE /flags/:name)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/flags/new-checkout", "host": ["{{baseUrl}}"], "path": ["flags", "new-checkout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Targeting",
+      "item": [
+        {
+          "name": "Criar regra (POST /targeting/rules)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"flag_name\": \"new-checkout\",\n  \"is_enabled\": true,\n  \"rules\": { \"type\": \"PERCENTAGE\", \"value\": 50 }\n}" },
+            "url": { "raw": "{{baseUrl}}/targeting/rules", "host": ["{{baseUrl}}"], "path": ["targeting", "rules"] }
+          }
+        },
+        {
+          "name": "Buscar regra (GET /targeting/rules/:flag)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/targeting/rules/new-checkout", "host": ["{{baseUrl}}"], "path": ["targeting", "rules", "new-checkout"] }
+          }
+        },
+        {
+          "name": "Atualizar regra - USER_LIST (PUT /targeting/rules/:flag)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rules\": { \"type\": \"USER_LIST\", \"values\": [\"user-1\", \"user-42\"] }\n}" },
+            "url": { "raw": "{{baseUrl}}/targeting/rules/new-checkout", "host": ["{{baseUrl}}"], "path": ["targeting", "rules", "new-checkout"] }
+          }
+        },
+        {
+          "name": "Deletar regra (DELETE /targeting/rules/:flag)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/targeting/rules/new-checkout", "host": ["{{baseUrl}}"], "path": ["targeting", "rules", "new-checkout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Evaluation",
+      "item": [
+        {
+          "name": "Avaliar flag (GET /evaluation/evaluate)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/evaluation/evaluate?user_id=user-42&flag_name=new-checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["evaluation", "evaluate"],
+              "query": [
+                { "key": "user_id", "value": "user-42" },
+                { "key": "flag_name", "value": "new-checkout" }
+              ]
+            },
+            "description": "Sem auth do cliente. O evaluation usa o SERVICE_API_KEY internamente. Cada chamada produz um evento no SQS que o analytics grava no DynamoDB."
+          }
+        }
+      ]
+    }
+  ]
+}

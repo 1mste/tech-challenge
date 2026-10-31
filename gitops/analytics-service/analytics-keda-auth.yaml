@@ -1,0 +1,17 @@
+# Como o KEDA consulta o tamanho da fila sem access key.
+#
+# identityOwner: workload faz o KEDA usar a IRSA da PROPRIA aplicacao
+# (analytics-sa), que ja tem sqs:GetQueueAttributes. Assim nao e preciso
+# criar uma role separada para o operador do KEDA.
+#
+# Este arquivo estava referenciado no repositorio original, mas nao existia:
+# sem ele o ScaledObject fica em erro de autenticacao.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: analytics-keda-auth
+  namespace: analytics-service
+spec:
+  podIdentity:
+    provider: aws
+    identityOwner: workload

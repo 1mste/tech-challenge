@@ -1,0 +1,42 @@
+# --- Terraform ---
+**/.terraform/*
+.terraform.lock.hcl
+
+# O state NUNCA vai para o Git: ele mora no bucket S3 do backend remoto
+# e contém endpoints, ARNs e valores sensíveis.
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# tfvars podem conter dados de ambiente; só o exemplo é versionado.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+.terraformrc
+terraform.rc
+tfplan
+*.tfplan
+
+# --- Credenciais e saídas locais ---
+.env
+*.pem
+kubeconfig*
+outputs.json
+
+# --- Aplicações ---
+# Binários Go compilados (o build acontece no Docker/CI, não no repo)
+auth-service/auth-service
+evaluation-service/evaluation-service
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

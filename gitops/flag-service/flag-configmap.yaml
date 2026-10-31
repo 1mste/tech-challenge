@@ -1,0 +1,9 @@
+# Valores entre <> saem de: terraform -chdir=terraform/environments/dev output
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flag-config
+  namespace: flag-service
+data:
+  PORT: "8002"
+  AUTH_SERVICE_URL: "http://auth-service.auth-service.svc.cluster.local"

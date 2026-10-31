@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# Copie para terraform.tfvars e ajuste. TODOS os valores têm default — este
+# arquivo só é necessário se você quiser mudar alguma coisa.
+#
+# Repare no que NÃO está aqui: senha de banco. Elas são geradas pelo
+# Terraform e guardadas no Secrets Manager, nunca em arquivo de texto.
+# ---------------------------------------------------------------------------
+
+aws_region   = "us-east-1"
+project_name = "togglemaster"
+environment  = "dev"
+
+# --- Custo ---
+# single_nat_gateway = true  -> 1 NAT  (~US$ 32/mês)  [default]
+# single_nat_gateway = false -> 1 por AZ (~US$ 64/mês), mais resiliente
+single_nat_gateway = true
+
+# --- Cluster ---
+cluster_version     = "1.36"
+node_instance_types = ["t3.medium"]
+node_desired_size   = 2
+node_min_size       = 1
+node_max_size       = 4
+
+# Em ambiente real, restrinja ao seu IP: ["203.0.113.10/32"]
+public_access_cidrs = ["0.0.0.0/0"]
+
+# --- Dados ---
+db_instance_class   = "db.t3.micro"
+redis_node_type     = "cache.t3.micro"
+dynamodb_table_name = "ToggleMasterAnalytics"
+sqs_queue_name      = "togglemaster-analytics-events"
+
+# --- ITEM 2: habilita o push no ECR via OIDC, sem access key ---
+# Informe os repositórios que rodam os workflows. Vazio = módulo desligado.
+# github_repositories = ["sua-org/toggle-master-infra", "sua-org/ToggleMaster"]
+# create_github_oidc_provider = true   # false se a conta já tiver o provider

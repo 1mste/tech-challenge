@@ -1,0 +1,175 @@
+services:
+
+  auth-postgres:
+    image: postgres:16
+    container_name: auth-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${AUTH_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      POSTGRES_DB: auth_db
+
+    ports:
+      - "${AUTH_POSTGRES_PORT}:5432"
+
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+      - ./postgres/auth/auth-init.sql:/docker-entrypoint-initdb.d/init.sql
+
+
+  flag-postgres:
+    image: postgres:16
+    container_name: flag-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${FLAG_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${FLAG_POSTGRES_PASSWORD}
+      POSTGRES_DB: flags_db
+
+    ports:
+      - "${FLAG_POSTGRES_PORT}:5432"
+
+    volumes:
+      - flag_postgres_data:/var/lib/postgresql/data
+      - ./postgres/flag/flags-init.sql:/docker-entrypoint-initdb.d/init.sql
+    
+  targeting-postgres:
+    image: postgres:16
+    container_name: targeting-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${TARGETING_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TARGETING_POSTGRES_PASSWORD}
+      POSTGRES_DB: targeting_db
+
+    ports:
+      - "${TARGETING_POSTGRES_PORT}:5432"
+
+    volumes:
+      - targeting_postgres_data:/var/lib/postgresql/data
+      - ./postgres/targeting/targeting-init.sql:/docker-entrypoint-initdb.d/init.sql
+  redis:
+    image: redis:7-alpine
+    container_name: evaluation-redis
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+
+  auth-service:
+    build:
+      context: ./auth-service
+
+    container_name: auth-service
+    restart: unless-stopped
+
+    ports:
+      - "8001:8001"
+
+    environment:
+      DATABASE_URL: postgres://${AUTH_POSTGRES_USER}:${AUTH_POSTGRES_PASSWORD}@auth-postgres:5432/auth_db
+      PORT: 8001
+      MASTER_KEY: ${MASTER_KEY}
+
+    depends_on:
+      - auth-postgres
+
+
+  flag-service:
+    build:
+      context: ./flag-service
+
+    container_name: flag-service
+    restart: unless-stopped
+
+    ports:
+      - "8002:8002"
+
+    environment:
+      DATABASE_URL: postgres://${FLAG_POSTGRES_USER}:${FLAG_POSTGRES_PASSWORD}@flag-postgres:5432/flags_db
+      PORT: 8002
+      AUTH_SERVICE_URL: http://auth-service:8001
+
+    depends_on:
+      - flag-postgres
+      - auth-service
+
+  targeting-service:
+    build:
+      context: ./targeting-service
+
+    container_name: targeting-service
+    restart: unless-stopped
+
+    ports:
+      - "8003:8003"
+
+    environment:
+      DATABASE_URL: postgres://${TARGETING_POSTGRES_USER}:${TARGETING_POSTGRES_PASSWORD}@targeting-postgres:5432/targeting_db
+      PORT: 8003
+      AUTH_SERVICE_URL: http://auth-service:8001
+
+    depends_on:
+      - targeting-postgres
+      - auth-service
+
+  evaluation-service:
+    build:
+      context: ./evaluation-service
+
+    container_name: evaluation-service
+    restart: unless-stopped
+
+    ports:
+      - "8004:8004"
+
+    environment:
+      PORT: 8004
+      REDIS_URL: redis://redis:6379/0
+      FLAG_SERVICE_URL: http://flag-service:8002
+      TARGETING_SERVICE_URL: http://targeting-service:8003
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
+
+      AWS_REGION: ${AWS_REGION}
+      AWS_SQS_URL: ${AWS_SQS_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+    depends_on:
+      - redis
+      - flag-service
+      - targeting-service
+  
+  analytics-service:
+    build:
+      context: ./analytics-service
+
+    container_name: analytics-service
+    restart: unless-stopped
+
+    ports:
+      - "8005:8005"
+
+    environment:
+      PORT: 8005
+      AWS_REGION: ${AWS_REGION}
+      AWS_SQS_URL: ${AWS_SQS_URL}
+      AWS_DYNAMODB_TABLE: ${AWS_DYNAMODB_TABLE}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+    depends_on:
+      - evaluation-service
+
+volumes:
+  auth_postgres_data:
+  flag_postgres_data:
+  targeting_postgres_data:
+  redis_data:

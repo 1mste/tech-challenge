@@ -1,0 +1,32 @@
+# Registra o auth-service no ArgoCD.
+#
+# repoURL aponta para este mesmo repositorio (monorepo).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/1mste/tech-challenge.git
+    targetRevision: main
+    # Mudou: os manifestos agora vivem em gitops/, nao na raiz.
+    path: gitops/auth-service
+  destination:
+    server: https://kubernetes.default.svc
+    # Um namespace por servico, como o enunciado da Fase 2 pede.
+    namespace: auth-service
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2

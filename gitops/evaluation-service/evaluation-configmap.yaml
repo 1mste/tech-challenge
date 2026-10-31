@@ -1,0 +1,13 @@
+# Valores entre <> saem de: terraform -chdir=terraform/environments/dev output
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evaluation-config
+  namespace: evaluation-service
+data:
+  PORT: "8004"
+  REDIS_URL: "<REDIS_URL>"
+  AWS_REGION: "<AWS_REGION>"
+  AWS_SQS_URL: "<AWS_SQS_URL>"
+  FLAG_SERVICE_URL: "http://flag-service.flag-service.svc.cluster.local"
+  TARGETING_SERVICE_URL: "http://targeting-service.targeting-service.svc.cluster.local"

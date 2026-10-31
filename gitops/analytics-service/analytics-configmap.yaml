@@ -1,0 +1,11 @@
+# Valores entre <> saem de: terraform -chdir=terraform/environments/dev output
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-config
+  namespace: analytics-service
+data:
+  PORT: "8005"
+  AWS_REGION: "<AWS_REGION>"
+  AWS_SQS_URL: "<AWS_SQS_URL>"
+  AWS_DYNAMODB_TABLE: "ToggleMasterAnalytics"

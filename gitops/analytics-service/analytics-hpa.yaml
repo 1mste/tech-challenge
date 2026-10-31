@@ -1,0 +1,27 @@
+# Escala pelo TAMANHO DA FILA, nao por CPU.
+#
+# Por que: o analytics le mensagens do SQS. A CPU dele pode estar baixa com
+# 10 mil mensagens acumuladas esperando. Medir a fila e reagir a causa;
+# medir CPU e reagir ao sintoma.
+#
+# Exige o KEDA instalado (stack dev-addons).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: analytics-service-scaledobject
+  namespace: analytics-service
+spec:
+  scaleTargetRef:
+    name: analytics-service
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: analytics-keda-auth
+      metadata:
+        queueURL: "<AWS_SQS_URL>"
+        queueLength: "5"
+        awsRegion: "<AWS_REGION>"

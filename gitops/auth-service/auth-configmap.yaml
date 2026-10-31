@@ -1,0 +1,8 @@
+# Valores entre <> saem de: terraform -chdir=terraform/environments/dev output
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: auth-service
+data:
+  PORT: "8001"

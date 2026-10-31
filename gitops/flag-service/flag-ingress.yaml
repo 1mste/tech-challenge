@@ -1,0 +1,24 @@
+# Um Ingress por namespace: o objeto Ingress so enxerga Services do seu
+# proprio namespace. O Nginx junta todos sob o mesmo Load Balancer.
+#
+# Sem "host": atende qualquer endereco, inclusive o DNS do NLB da AWS.
+# rewrite-target: /$2 faz /flag/algo chegar na aplicacao como /algo.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flag-service-ingress
+  namespace: flag-service
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /flag(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: flag-service
+                port:
+                  number: 80
