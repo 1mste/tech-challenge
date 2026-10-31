@@ -121,10 +121,18 @@ for repo in "${ECR_REPOS[@]}"; do
     exit 1
   fi
   CTX="$(cd "$CTX" && pwd)"
-  DOCKERFILE="$CTX/Dockerfile"
 
-  if [ ! -f "$DOCKERFILE" ]; then
-    echo "ERRO: Dockerfile não encontrado em '$CTX/'." >&2
+  # Linux diferencia maiúsculas: os serviços deste repositório trazem
+  # 'dockerfile' minúsculo, mas outros projetos usam 'Dockerfile'.
+  # Aceita as duas grafias em vez de impor uma.
+  DOCKERFILE=""
+  for cand in Dockerfile dockerfile Containerfile; do
+    if [ -f "$CTX/$cand" ]; then DOCKERFILE="$CTX/$cand"; break; fi
+  done
+
+  if [ -z "$DOCKERFILE" ]; then
+    echo "ERRO: nenhum Dockerfile em '$CTX/'." >&2
+    echo "      Procurei por: Dockerfile, dockerfile, Containerfile." >&2
     echo "      O código da aplicação de '$repo' precisa estar presente (pasta vazia?)." >&2
     exit 1
   fi
@@ -133,7 +141,8 @@ for repo in "${ECR_REPOS[@]}"; do
   if ! aws ecr describe-repositories --region "$REGION" \
         --repository-names "$repo" >/dev/null 2>&1; then
     echo "ERRO: repositório ECR '$repo' não existe." >&2
-    echo "      Rode ./02-aws-resources.sh antes (ele cria os 5 repositórios ECR)." >&2
+    echo "      Os repositórios ECR são criados pelo Terraform. Rode:" >&2
+    echo "        terraform -chdir=terraform/environments/dev apply" >&2
     exit 1
   fi
 
