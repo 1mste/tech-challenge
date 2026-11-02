@@ -18,7 +18,7 @@ spec:
       containers:
         - name: analytics-service
           # O pipeline de CI reescreve ESTA linha com a tag do commit.
-          image: 698172256617.dkr.ecr.us-east-1.amazonaws.com/analytics-service:v1.0.0-e29f1d9
+          image: 698172256617.dkr.ecr.us-east-1.amazonaws.com/analytics-service:v1.0.0-72fa04e
           ports:
             - containerPort: 8005
           envFrom:
