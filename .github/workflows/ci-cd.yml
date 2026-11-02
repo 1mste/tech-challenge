@@ -33,6 +33,7 @@ env:
   GO_VERSION: "1.21"
   PYTHON_VERSION: "3.11"
   TRIVY_VERSION: "0.65.0"
+  GOSEC_VERSION: "2.24.6"
 
 jobs:
   # =========================================================================
@@ -127,12 +128,17 @@ jobs:
                --exit-code 1 "/repo/$SERVICE"
           #    ^^^^^^^^^^^^^ REGRA DE BLOQUEIO: CRITICAL reprova o pipeline
 
+      # gosec via conteiner, pelo mesmo motivo do Trivy: "go install" puxava
+      # a v2.30, que exige Go 1.26, e baixava um toolchain inteiro por
+      # execucao. A imagem oficial fixa a versao e dispensa isso.
       - name: 3b. SAST — codigo fonte (gosec)
         if: matrix.lang == 'go'
-        working-directory: ${{ matrix.service }}
+        env:
+          SERVICE: ${{ matrix.service }}
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          "$(go env GOPATH)/bin/gosec" -severity medium -confidence medium ./...
+          docker run --rm -v "$PWD:/src" -w "/src/$SERVICE" \
+            securego/gosec:${{ env.GOSEC_VERSION }} \
+            -severity medium -confidence medium ./...
 
       - name: 3b. SAST — codigo fonte (bandit)
         if: matrix.lang == 'python'

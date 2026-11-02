@@ -1,13 +1,13 @@
 package main
 
 import (
-    "crypto/sha1"
-    "encoding/binary"
     "encoding/json"
     "fmt"
+    "hash/fnv"
     "io"
     "log"
     "net/http"
+    neturl "net/url"
     "os"
     "sync"
     "time"
@@ -105,13 +105,18 @@ func (a *App) fetchFromServices(flagName string) (*CombinedFlagInfo, error) {
 
 // fetchFlag (função helper)
 func (a *App) fetchFlag(flagName string) (*Flag, error) {
-	url := fmt.Sprintf("%s/flags/%s", a.FlagServiceURL, flagName)
+	url := fmt.Sprintf("%s/flags/%s", a.FlagServiceURL, neturl.PathEscape(flagName))
 
 	apiKey := os.Getenv("SERVICE_API_KEY")
-	req, _ := http.NewRequest("GET", url, nil)
+	// #nosec G704 -- nao e SSRF: o HOST vem de variavel de ambiente definida
+	// pelo operador (FLAG_SERVICE_URL / TARGETING_SERVICE_URL), nao da
+	// requisicao. Do usuario vem so o segmento de caminho, ja escapado com
+	// url.PathEscape acima. O gosec acusa porque a URL nao e constante — a
+	// analise de taint dele nao distingue a origem de cada parte.
+	req, _ := http.NewRequest("GET", url, nil) // #nosec G704
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	
-	resp, err := a.HttpClient.Do(req)
+	resp, err := a.HttpClient.Do(req) // #nosec G704
 	if err != nil {
 		return nil, fmt.Errorf("erro ao chamar flag-service: %w", err)
 	}
@@ -133,12 +138,17 @@ func (a *App) fetchFlag(flagName string) (*Flag, error) {
 }
 
 func (a *App) fetchRule(flagName string) (*TargetingRule, error) {
-	url := fmt.Sprintf("%s/rules/%s", a.TargetingServiceURL, flagName)
+	url := fmt.Sprintf("%s/rules/%s", a.TargetingServiceURL, neturl.PathEscape(flagName))
 	apiKey := os.Getenv("SERVICE_API_KEY") // Usa a mesma chave
-	req, _ := http.NewRequest("GET", url, nil)
+	// #nosec G704 -- nao e SSRF: o HOST vem de variavel de ambiente definida
+	// pelo operador (FLAG_SERVICE_URL / TARGETING_SERVICE_URL), nao da
+	// requisicao. Do usuario vem so o segmento de caminho, ja escapado com
+	// url.PathEscape acima. O gosec acusa porque a URL nao e constante — a
+	// analise de taint dele nao distingue a origem de cada parte.
+	req, _ := http.NewRequest("GET", url, nil) // #nosec G704
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	
-	resp, err := a.HttpClient.Do(req)
+	resp, err := a.HttpClient.Do(req) // #nosec G704
 	if err != nil {
 		return nil, fmt.Errorf("erro ao chamar targeting-service: %w", err)
 	}
@@ -191,14 +201,12 @@ func (a *App) runEvaluationLogic(info *CombinedFlagInfo, userID string) bool {
 }
 
 func getDeterministicBucket(input string) int {
-	// Usamos SHA1 (rápido) e pegamos os primeiros 4 bytes
-	hasher := sha1.New()
+	// FNV-1a: hash NAO criptografico, proposital. Aqui nao se protege nada —
+	// so se distribui o usuario numa faixa de 0 a 99, de forma estavel.
+	// Antes era SHA1, que o gosec acusa (G401/G505) por ser primitiva fraca;
+	// a acusacao procede para uso criptografico, mas o erro era usar uma
+	// funcao de cripto onde ela nao tem proposito.
+	hasher := fnv.New32a()
 	hasher.Write([]byte(input))
-	hash := hasher.Sum(nil)
-	
-	// Converte 4 bytes para um uint32
-	val := binary.BigEndian.Uint32(hash[:4])
-	
-	// Retorna o módulo 100
-	return int(val % 100)
+	return int(hasher.Sum32() % 100)
 }
