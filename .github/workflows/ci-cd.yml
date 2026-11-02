@@ -138,7 +138,13 @@ jobs:
         if: matrix.lang == 'python'
         run: |
           pip install bandit
-          bandit -r ${{ matrix.service }} -ll
+          # -ll  reporta MEDIUM para cima.
+          # --skip B104: "binding to all interfaces". Num conteiner, escutar
+          #   em 0.0.0.0 e obrigatorio — com 127.0.0.1 o pod fica inacessivel.
+          #   Vale para os 3 servicos Flask, por isso fica aqui e nao no codigo.
+          # O B608 (SQL) e tratado caso a caso, com "# nosec" justificado no
+          # proprio arquivo, para o motivo ficar junto da linha.
+          bandit -r ${{ matrix.service }} -ll --skip B104
 
   # =========================================================================
   # ESTAGIO 4 — imagem no ECR. So roda se TUDO acima passou.

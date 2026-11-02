@@ -172,7 +172,10 @@ def update_flag(name):
     
     values.append(name) # Adiciona o 'name' para a cláusula WHERE
     
-    query = f"UPDATE flags SET {', '.join(fields)} WHERE name = %s RETURNING *"
+    # nosec B608: a f-string so interpola literais fixos montados acima
+    # ("description = %s", "is_enabled = %s"); nenhum dado do usuario entra
+    # na query. Os valores vao parametrizados em `values`, via %s.
+    query = f"UPDATE flags SET {', '.join(fields)} WHERE name = %s RETURNING *"  # nosec B608
     
     conn = None
     cur = None
