@@ -173,3 +173,13 @@ variable "team_access_entries" {
 
   default = {}
 }
+
+variable "manage_github_variable" {
+  description = <<-EOT
+    Cadastra a variavel AWS_ROLE_ARN no repositorio do GitHub, dispensando
+    copiar e colar no navegador. Exige GITHUB_TOKEN no ambiente, com escopo
+    repo (ou variables:write em fine-grained).
+  EOT
+  type        = bool
+  default     = false
+}

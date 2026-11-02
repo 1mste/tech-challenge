@@ -122,3 +122,31 @@ resource "aws_iam_role_policy" "evaluation" {
   role   = aws_iam_role.this["evaluation"].id
   policy = data.aws_iam_policy_document.evaluation.json
 }
+
+# --------------------------------------------------
+# KEDA: so LE o tamanho da fila
+#
+# Permissao deliberadamente menor que a do analytics: o KEDA precisa saber
+# QUANTAS mensagens existem, nao le nem apaga nenhuma. Quem consome a fila
+# e a aplicacao.
+# --------------------------------------------------
+
+data "aws_iam_policy_document" "keda" {
+  statement {
+    sid    = "ReadQueueDepth"
+    effect = "Allow"
+
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:GetQueueUrl",
+    ]
+
+    resources = [var.sqs_queue_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "keda" {
+  name   = "${var.project_name}-${var.environment}-keda-policy"
+  role   = aws_iam_role.this["keda"].id
+  policy = data.aws_iam_policy_document.keda.json
+}

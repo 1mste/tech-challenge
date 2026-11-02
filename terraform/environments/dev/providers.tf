@@ -12,3 +12,9 @@ provider "aws" {
     }
   }
 }
+
+# O token vem da variavel de ambiente GITHUB_TOKEN — nunca de arquivo, nunca
+# do state. Só é exigido quando manage_github_variable = true.
+provider "github" {
+  owner = length(var.github_repositories) > 0 ? split("/", var.github_repositories[0])[0] : null
+}

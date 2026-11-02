@@ -22,3 +22,8 @@ output "keda_namespace" {
   description = "Namespace do KEDA"
   value       = module.k8s_addons.keda_namespace
 }
+
+output "keda_role_arn" {
+  description = "Role IRSA usada pelo operador do KEDA para ler o tamanho da fila"
+  value       = data.aws_iam_role.keda.arn
+}

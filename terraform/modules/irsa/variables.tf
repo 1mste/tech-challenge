@@ -50,10 +50,17 @@ variable "service_accounts" {
       namespace       = "evaluation-service"
       service_account = "evaluation-sa"
     }
+    # O operador do KEDA precisa de identidade PROPRIA para consultar o
+    # tamanho da fila. Nao basta "pegar emprestada" a da aplicacao: para
+    # assumir qualquer role e preciso ter uma credencial de partida.
+    keda = {
+      namespace       = "keda"
+      service_account = "keda-operator"
+    }
   }
 
   validation {
-    condition     = alltrue([for k in ["analytics", "evaluation"] : contains(keys(var.service_accounts), k)])
-    error_message = "service_accounts precisa conter as chaves 'analytics' e 'evaluation'."
+    condition     = alltrue([for k in ["analytics", "evaluation", "keda"] : contains(keys(var.service_accounts), k)])
+    error_message = "service_accounts precisa conter as chaves 'analytics', 'evaluation' e 'keda'."
   }
 }

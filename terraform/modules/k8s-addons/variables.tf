@@ -69,3 +69,9 @@ variable "keda_namespace" {
   type        = string
   default     = "keda"
 }
+
+variable "keda_role_arn" {
+  description = "ARN da role IRSA do operador do KEDA. Vazio instala sem identidade AWS (o scaler da SQS nao funcionara)."
+  type        = string
+  default     = ""
+}

@@ -5,6 +5,7 @@ module "k8s_addons" {
   enable_ingress_nginx  = true
   enable_argocd         = var.enable_argocd
   enable_keda           = var.enable_keda
+  keda_role_arn         = data.aws_iam_role.keda.arn
 
   argocd_service_type = var.argocd_service_type
 }

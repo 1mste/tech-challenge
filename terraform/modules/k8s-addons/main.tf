@@ -25,6 +25,9 @@ resource "helm_release" "metrics_server" {
   version    = var.metrics_server_version
   namespace  = "kube-system"
 
+  atomic          = true
+  cleanup_on_fail = true
+
   wait    = true
   timeout = 600
 }
@@ -56,6 +59,9 @@ resource "helm_release" "ingress_nginx" {
     },
   ]
 
+  atomic          = true
+  cleanup_on_fail = true
+
   wait    = true
   timeout = 900
 }
@@ -83,6 +89,9 @@ resource "helm_release" "argocd" {
     },
   ]
 
+  atomic          = true
+  cleanup_on_fail = true
+
   wait    = true
   timeout = 900
 
@@ -109,6 +118,18 @@ resource "helm_release" "keda" {
   version          = var.keda_version
   namespace        = var.keda_namespace
   create_namespace = true
+
+  # IRSA do operador. Sem esta annotation o scaler da SQS falha com
+  # "no EC2 IMDS role found": o KEDA nao tem credencial para chamar a AWS.
+  set = var.keda_role_arn == "" ? [] : [
+    {
+      name  = "serviceAccount.operator.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = var.keda_role_arn
+    },
+  ]
+
+  atomic          = true
+  cleanup_on_fail = true
 
   wait    = true
   timeout = 900

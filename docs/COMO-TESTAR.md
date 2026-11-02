@@ -644,7 +644,7 @@ técnicas e três entregáveis — e nem todos estão prontos.
 | | O que é | Situação |
 |---|---|---|
 | **1. Infraestrutura como código** | Construir o ambiente por arquivos, sem clicar no site da AWS | ✅ **pronto** — Passos 3 a 6 deste guia |
-| **2. Pipeline automático** | A cada alteração no código: testar, procurar falhas de segurança e publicar | 🟡 **falta a maior parte** |
+| **2. Pipeline automático** | A cada alteração no código: testar, procurar falhas de segurança e publicar | ✅ **escrito** — falta ligar a credencial |
 | **3. Implantação automática** | Um robô mantém o ambiente igual ao que está no Git | ✅ **pronto** — Passos 8 a 10 |
 
 ### O que falta no requisito 2 — a parte maior
@@ -674,8 +674,18 @@ alterou o código
 depósito sem senha (feito no Terraform), e a varredura automática de cada
 imagem que chega ao depósito.
 
-**O que falta:** os cinco arquivos de pipeline, um por programa. São o
-Requisito 2 inteiro, e é a única parte do projeto sem nada escrito.
+**O que falta:** apenas ligar a credencial. O pipeline existe em
+`.github/workflows/ci-cd.yml`, cobrindo os 5 programas, com os 4 estágios e
+o passo que atualiza o GitOps. Para ele publicar no ECR:
+
+```bash
+cd terraform/environments/dev
+terraform apply -var='github_repositories=["1mste/tech-challenge"]'
+terraform output -raw github_actions_role_arn
+```
+
+O valor vai no GitHub em Settings → Secrets and variables → Actions →
+Variables, com o nome `AWS_ROLE_ARN`.
 
 > **Reflexo prático neste guia:** o Passo 8 usa a identificação `latest` na
 > imagem. Quando o pipeline existir, ele passará a escrever ali a
@@ -686,7 +696,7 @@ Requisito 2 inteiro, e é a única parte do projeto sem nada escrito.
 
 | Entregável | O que precisa ter | Situação |
 |---|---|---|
-| **Código no repositório** | Terraform, pipelines e manifestos | 🟡 falta só os pipelines |
+| **Código no repositório** | Terraform, pipelines e manifestos | ✅ completo |
 | **Vídeo** (até 20 min) | Ver abaixo | ❌ não gravado |
 | **Relatório** (.pdf/.txt) | Participantes, links, desafios e **print do custo** | ❌ não escrito |
 
@@ -702,7 +712,10 @@ Os itens **1 e 4** você já consegue gravar hoje, com este guia. Os itens
 
 > **Dica para o item 2:** o jeito mais simples de mostrar o pipeline
 > reprovando é acrescentar uma biblioteca velha e vulnerável num dos
-> programas Python — por exemplo `requests==2.19.1` no `requirements.txt`.
+> programas Python — use `Pillow==8.0.0`, que tem 8 falhas CRITICAL
+> conhecidas. Acrescente com `printf '\n%s\n'`, não com `echo >>`: alguns
+> arquivos não terminam em quebra de linha e a dependência colaria na linha
+> anterior, passando despercebida pelo scanner.
 > A etapa de segurança barra, você remove e mostra passando.
 
 #### O que o relatório precisa ter
@@ -726,25 +739,37 @@ Os itens **1 e 4** você já consegue gravar hoje, com este guia. Os itens
 | | Falta | Esforço |
 |---|---|---|
 | Requisito 1 | — | — |
-| Requisito 2 | os 5 pipelines | ~4 h |
+| Requisito 2 | ligar a credencial e rodar uma vez | ~30 min |
 | Requisito 3 | — | — |
 | Vídeo e relatório | ambos | ~4 h |
 
 #### Itens para a calculadora de custos
 
-| Serviço | Configuração |
-|---|---|
-| Amazon EKS | 1 cluster |
-| Amazon EC2 | 2 × `t3.medium`, Linux, sob demanda, 20 GiB gp3 |
-| Amazon RDS | 3 × `db.t3.micro`, PostgreSQL, Single-AZ, 20 GiB gp3 |
-| Amazon ElastiCache | 1 × `cache.t3.micro`, Redis |
-| VPC NAT Gateway | 1, ~10 GB/mês de tráfego |
-| Elastic Load Balancing | 1 Network Load Balancer |
-| DynamoDB · SQS · ECR | on-demand, volume baixo (~3 GB no ECR) |
+Preços consultados na API de pricing da AWS em 31/10/2026, região
+`us-east-1`, sob demanda.
 
-Deve dar perto de **US$ 237/mês**. Vale registrar no relatório que o
-ambiente **não fica ligado o mês inteiro** — o uso real da entrega fica
-entre **US$ 1 e 3**.
+| Serviço | Configuração | US$/hora | US$/mês |
+|---|---|---:|---:|
+| Amazon EKS | 1 cluster | 0,1000 | 73,00 |
+| Amazon EC2 | 2 × `t3.medium`, Linux | 0,0832 | 60,74 |
+| Amazon RDS | 3 × `db.t3.micro`, PostgreSQL, Single-AZ | 0,0540 | 39,42 |
+| VPC NAT Gateway | 1 | 0,0450 | 32,85 |
+| Elastic Load Balancing | 1 Network Load Balancer | 0,0225 | 16,43 |
+| Amazon ElastiCache | 1 × `cache.t3.micro`, Redis | 0,0140 | 10,22 |
+| Amazon EBS | 40 GiB gp3 (2 × 20) | 0,0044 | 3,20 |
+| DynamoDB · SQS · ECR | on-demand, volume baixo | ~0 | ~0,30 |
+| **Total** | | **0,323** | **236,16** |
+
+Em reais, a US$ 1,00 ≈ R$ 5,30: **R$ 1,71/hora**, R$ 1.251/mês.
+
+Vale registrar no relatório que o ambiente **não fica ligado o mês inteiro**.
+O uso real da entrega:
+
+| Cenário | Custo |
+|---|---|
+| Subir, testar e destruir (~2 h) | US$ 0,65 · R$ 3,44 |
+| Um dia de trabalho (8 h) | US$ 2,58 · R$ 13,67 |
+| Esquecido um fim de semana (60 h) | US$ 19,38 · R$ 102,71 |
 
 #### Desafios que valem citar no relatório
 

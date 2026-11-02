@@ -154,3 +154,22 @@ module "github_oidc" {
   ecr_repository_arns  = values(module.ecr.repository_arns)
   create_oidc_provider = var.create_github_oidc_provider
 }
+
+# --------------------------------------------------
+# A variavel AWS_ROLE_ARN do GitHub Actions, sob IaC
+#
+# Sem isto, o ARN gerado acima precisa ser copiado a mao para
+# Settings > Secrets and variables > Actions. Com isto, o mesmo
+# terraform apply que cria a role ja a publica no repositorio.
+#
+# E Variable, nao Secret: um ARN nao e segredo. A seguranca vem da condicao
+# "sub" na trust policy, que so aceita este repositorio.
+# --------------------------------------------------
+
+resource "github_actions_variable" "aws_role_arn" {
+  count = var.manage_github_variable && length(var.github_repositories) > 0 ? 1 : 0
+
+  repository    = split("/", var.github_repositories[0])[1]
+  variable_name = "AWS_ROLE_ARN"
+  value         = module.github_oidc[0].ci_role_arn
+}

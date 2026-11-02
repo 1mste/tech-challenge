@@ -1,11 +1,16 @@
 # Como o KEDA consulta o tamanho da fila sem access key.
 #
-# identityOwner: workload faz o KEDA usar a IRSA da PROPRIA aplicacao
-# (analytics-sa), que ja tem sqs:GetQueueAttributes. Assim nao e preciso
-# criar uma role separada para o operador do KEDA.
+# O operador do KEDA usa a PROPRIA IRSA (ServiceAccount keda-operator no
+# namespace keda), anotada pelo Terraform em modules/k8s-addons. A permissao
+# dela e minima: so sqs:GetQueueAttributes e GetQueueUrl.
 #
-# Este arquivo estava referenciado no repositorio original, mas nao existia:
-# sem ele o ScaledObject fica em erro de autenticacao.
+# Historico: antes estava com identityOwner: workload, na ideia de o KEDA
+# usar a IRSA da propria aplicacao. Nao funciona — para assumir a role de
+# alguem, o operador precisa primeiro ter uma credencial sua, e a
+# ServiceAccount dele nao tinha nenhuma. O sintoma era:
+#   "GetQueueAttributes ... no EC2 IMDS role found"
+#
+# Omitir identityOwner usa o padrao (operator), que e o correto aqui.
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
@@ -14,4 +19,3 @@ metadata:
 spec:
   podIdentity:
     provider: aws
-    identityOwner: workload

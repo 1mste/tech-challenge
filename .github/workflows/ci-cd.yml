@@ -1,79 +1,252 @@
+# ---------------------------------------------------------------------------
+# Pipeline CI/CD + DevSecOps — Tech Challenge Fase 3
+#
+# Estagios exigidos pelo enunciado:
+#   1. Build & Unit Test
+#   2. Linter / Static Analysis
+#   3. Security Scan — SCA (dependencias) + SAST (codigo fonte)
+#      com REGRA DE BLOQUEIO: vulnerabilidade CRITICAL reprova o pipeline
+#   4. Docker Build & Push no ECR, com a tag do commit
+#   5. (requisito 3) Atualiza a tag no GitOps -> o ArgoCD implanta sozinho
+#
+# PRE-REQUISITO, criado pelo Terraform:
+#   cd terraform/environments/dev
+#   terraform apply -var='github_repositories=["1mste/tech-challenge"]'
+#   terraform output -raw github_actions_role_arn
+# Guardar o ARN em Settings > Secrets and variables > Actions > Variables,
+# com o nome AWS_ROLE_ARN. Nenhuma access key e necessaria.
+# ---------------------------------------------------------------------------
 name: CI/CD DevSecOps Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+
+# Padrao restritivo: cada job amplia so o que precisa.
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  GO_VERSION: "1.21"
+  PYTHON_VERSION: "3.11"
 
 jobs:
+  # =========================================================================
+  # ESTAGIOS 1 a 3 — um job por microsservico, em paralelo
+  # =========================================================================
   security-and-quality:
+    name: ${{ matrix.service }} (${{ matrix.lang }})
     runs-on: ubuntu-latest
+
     strategy:
+      fail-fast: false
       matrix:
-        service: [analytics-service, auth-service, evaluation-service, flag-service, targeting-service]
-    
+        # A linguagem e declarada explicitamente. A versao anterior deduzia
+        # pelo nome e tratava flag/targeting como Go: como eles nao tem
+        # go.mod, a etapa de build NAO FAZIA NADA e passava verde.
+        include:
+          - { service: auth-service,       lang: go }
+          - { service: evaluation-service, lang: go }
+          - { service: flag-service,       lang: python }
+          - { service: targeting-service,  lang: python }
+          - { service: analytics-service,  lang: python }
+
     steps:
-      - name: Checkout do Código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar Python (para Analytics)
-        if: matrix.service == 'analytics-service'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Configurar Go (para demais serviços)
-        if: matrix.service != 'analytics-service'
+      - name: Preparar Go
+        if: matrix.lang == 'go'
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.service }}/go.sum
 
-      - name: 1. Build & Unit Test (Python)
-        if: matrix.service == 'analytics-service'
-        run: |
-          cd ${{ matrix.service }}
-          pip install -r requirements.txt || true
+      - name: Preparar Python
+        if: matrix.lang == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: 1. Build & Unit Test (Go)
-        if: matrix.service != 'analytics-service'
+      # ---------------- 1. BUILD & UNIT TEST ----------------
+      - name: 1. Build e testes (Go)
+        if: matrix.lang == 'go'
+        working-directory: ${{ matrix.service }}
         run: |
-          cd ${{ matrix.service }}
-          if [ -f "go.mod" ]; then
-            go build -v ./... || true
-            go test -v ./... || true
+          go build -v ./...
+          go test -v ./...
+
+      - name: 1. Build e testes (Python)
+        if: matrix.lang == 'python'
+        working-directory: ${{ matrix.service }}
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m compileall -q .
+          # Roda pytest apenas se houver testes; ausencia de teste nao reprova.
+          if ls test_*.py *_test.py tests/ >/dev/null 2>&1; then
+            pip install pytest && pytest -v
+          else
+            echo "Nenhum teste encontrado neste servico."
           fi
 
-      - name: 2. Linter / Static Analysis (Python - Flake8)
-        if: matrix.service == 'analytics-service'
+      # ---------------- 2. LINTER ----------------
+      - name: 2. Linter (Go)
+        if: matrix.lang == 'go'
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: ${{ matrix.service }}
+          args: --timeout=5m
+
+      - name: 2. Linter (Python)
+        if: matrix.lang == 'python'
         run: |
-          cd ${{ matrix.service }}
           pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+          # Bloqueia em erro de verdade: sintaxe invalida, nome indefinido.
+          flake8 ${{ matrix.service }} --count --select=E9,F63,F7,F82 --show-source
+          # Relatorio de estilo, informativo — nao reprova o pipeline.
+          flake8 ${{ matrix.service }} --count --max-line-length=120 --statistics --exit-zero
 
-      - name: 2. Linter / Static Analysis (Go - Static Check / Vet)
-        if: matrix.service != 'analytics-service'
+      # ---------------- 3. SECURITY SCAN ----------------
+      # SCA e SAST olham coisas diferentes:
+      #   SCA  -> as BIBLIOTECAS que o servico usa
+      #   SAST -> o CODIGO escrito por nos
+      - name: 3a. SCA — dependencias (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          # Antes estava "scan-dir", que nao existe nesta action: o
+          # parametro era ignorado e o scan rodava na raiz do repositorio.
+          scan-ref: ${{ matrix.service }}
+          severity: CRITICAL
+          exit-code: "1" # <<< REGRA DE BLOQUEIO
+          ignore-unfixed: true
+          format: table
+
+      - name: 3b. SAST — codigo fonte (gosec)
+        if: matrix.lang == 'go'
+        working-directory: ${{ matrix.service }}
         run: |
-          cd ${{ matrix.service }}
-          if [ -f "go.mod" ]; then
-            # Executa a verificação estática de forma tolerante para evitar falhas de compilação em pacotes vazios
-            go vet $(go list ./... 2>/dev/null) || true
-          fi
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          "$(go env GOPATH)/bin/gosec" -severity medium -confidence medium ./...
 
-      - name: 3. Security Scan - SCA & SAST (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-dir: '${{ matrix.service }}'
-          format: 'table'
-          exit-code: '0'
+      - name: 3b. SAST — codigo fonte (bandit)
+        if: matrix.lang == 'python'
+        run: |
+          pip install bandit
+          bandit -r ${{ matrix.service }} -ll
 
-      - name: 4. Regra de Bloqueio (Critical Gate)
-        uses: aquasecurity/trivy-action@master
+  # =========================================================================
+  # ESTAGIO 4 — imagem no ECR. So roda se TUDO acima passou.
+  # =========================================================================
+  docker:
+    name: Imagem ${{ matrix.service }}
+    needs: security-and-quality
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write # obrigatorio para o OIDC com a AWS
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          [
+            auth-service,
+            evaluation-service,
+            flag-service,
+            targeting-service,
+            analytics-service,
+          ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Definir a tag a partir do commit
+        id: meta
+        run: echo "tag=v1.0.0-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build da imagem
+        run: |
+          docker build \
+            -t "${{ matrix.service }}:${{ steps.meta.outputs.tag }}" \
+            -f "${{ matrix.service }}/dockerfile" \
+            "${{ matrix.service }}"
+
+      # Scan da imagem PRONTA: pega falha da imagem base (python:3.11-slim,
+      # golang:1.21-alpine), que o scan do codigo-fonte nao enxerga.
+      - name: Scan da imagem (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          scan-type: 'fs'
-          scan-dir: '${{ matrix.service }}'
-          format: 'json'
-          output: 'trivy-results.json'
-          severity: 'CRITICAL'
-          exit-code: '1'
+          image-ref: ${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          format: table
+
+      # Credencial temporaria via OIDC — sem access key no repositorio.
+      - name: Autenticar na AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Publicar no ECR
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SERVICE: ${{ matrix.service }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker tag "$SERVICE:$TAG" "$REGISTRY/$SERVICE:$TAG"
+          docker push "$REGISTRY/$SERVICE:$TAG"
+
+  # =========================================================================
+  # ESTAGIO 5 — fecha o ciclo do GitOps (requisito 3)
+  #
+  # O CI NAO roda kubectl apply. Ele so troca a tag no manifesto; quem
+  # implanta e o ArgoCD, ao detectar o commit.
+  # =========================================================================
+  update-gitops:
+    name: Atualizar tag no GitOps
+    needs: docker
+    runs-on: ubuntu-latest
+
+    # Unico job que ESCREVE no repositorio.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Sem isto o runner fica em HEAD destacado e o push falha com
+          # "src refspec main does not match any".
+          ref: ${{ github.ref_name }}
+
+      - name: Reescrever a tag das 5 imagens
+        run: |
+          TAG="v1.0.0-$(git rev-parse --short HEAD)"
+          for s in auth flag targeting evaluation analytics; do
+            f="gitops/${s}-service/${s}-deployment.yaml"
+            sed -i -E "s|(image: .*/${s}-service):.*|\1:${TAG}|" "$f"
+            echo "  $f -> ${TAG}"
+          done
+
+      - name: Commitar e enviar
+        run: |
+          TAG="v1.0.0-$(git rev-parse --short HEAD)"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gitops/
+          git diff --staged --quiet && { echo "Nada mudou."; exit 0; }
+          git commit -m "chore(gitops): imagens ${TAG}"
+          # Push com o GITHUB_TOKEN NAO dispara workflows: e o que evita o
+          # loop infinito de CI num monorepo.
+          git push

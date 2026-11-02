@@ -32,3 +32,10 @@ provider "helm" {
     token                  = data.aws_eks_cluster_auth.main.token
   }
 }
+
+# A role IRSA do KEDA e criada pela stack de infraestrutura (modules/irsa).
+# Aqui ela e descoberta pelo NOME, no mesmo espirito do cluster acima: data
+# source em vez de output entre stacks, para nao acoplar os states.
+data "aws_iam_role" "keda" {
+  name = "${var.project_name}-${var.environment}-keda-irsa"
+}
