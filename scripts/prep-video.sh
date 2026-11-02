@@ -133,7 +133,14 @@ checa() { # checa <rotulo> <esperado> <valor>
 
 checa "nos Ready" "2" "$(kubectl get nodes --no-headers 2>/dev/null | grep -c ' Ready ')"
 checa "Applications Synced" "5" "$(kubectl get applications -n argocd --no-headers 2>/dev/null | grep -c 'Synced')"
-checa "pods de aplicacao Running" "9" "$(kubectl get pods -A --no-headers 2>/dev/null | grep -- '-service' | grep -c 'Running')"
+# "9 ou mais", nao exatamente 9: com o KEDA ativo o analytics escala ate 10,
+# e uma comparacao exata acusaria falha justamente quando tudo funciona.
+PODS=$(kubectl get pods -A --no-headers 2>/dev/null | grep -- '-service' | grep -c 'Running')
+if [ "${PODS:-0}" -ge 9 ]; then
+  ok "pods de aplicacao Running: $PODS"
+else
+  nok "pods de aplicacao Running: $PODS (esperado 9 ou mais)"; FALHAS=$((FALHAS+1))
+fi
 
 READY=$(kubectl get scaledobject -n analytics-service -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
 if [ "$READY" = "True" ]; then

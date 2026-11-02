@@ -114,7 +114,7 @@ jobs:
       #   SCA  -> as BIBLIOTECAS que o servico usa
       #   SAST -> o CODIGO escrito por nos
       - name: 3a. SCA — dependencias (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: fs
           # Antes estava "scan-dir", que nao existe nesta action: o
@@ -180,7 +180,7 @@ jobs:
       # Scan da imagem PRONTA: pega falha da imagem base (python:3.11-slim,
       # golang:1.21-alpine), que o scan do codigo-fonte nao enxerga.
       - name: Scan da imagem (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: ${{ matrix.service }}:${{ steps.meta.outputs.tag }}
           severity: CRITICAL
