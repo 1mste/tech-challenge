@@ -10,7 +10,11 @@
 # ServiceAccount dele nao tinha nenhuma. O sintoma era:
 #   "GetQueueAttributes ... no EC2 IMDS role found"
 #
-# Omitir identityOwner usa o padrao (operator), que e o correto aqui.
+# identityOwner: keda PRECISA ser explicito (valores validos: keda, workload). Omitir nao usa o padrao
+# que eu esperava: o KEDA assume o comportamento "workload" e tenta assumir
+# a role da aplicacao, resultando em:
+#   "keda-irsa is not authorized to perform: sts:AssumeRole on
+#    resource: .../analytics-irsa"
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
@@ -19,3 +23,4 @@ metadata:
 spec:
   podIdentity:
     provider: aws
+    identityOwner: keda
