@@ -32,6 +32,7 @@ env:
   AWS_REGION: us-east-1
   GO_VERSION: "1.21"
   PYTHON_VERSION: "3.11"
+  TRIVY_VERSION: "0.65.0"
 
 jobs:
   # =========================================================================
@@ -113,17 +114,18 @@ jobs:
       # SCA e SAST olham coisas diferentes:
       #   SCA  -> as BIBLIOTECAS que o servico usa
       #   SAST -> o CODIGO escrito por nos
+      # Trivy via contêiner, nao via action.
+      # A trivy-action baixa o binario do GitHub a cada execucao e falha
+      # quando bate no limite de requisicoes ("Install Trivy ... exit code 1").
+      # A imagem oficial elimina o instalador e fixa a versao.
       - name: 3a. SCA — dependencias (Trivy)
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: fs
-          # Antes estava "scan-dir", que nao existe nesta action: o
-          # parametro era ignorado e o scan rodava na raiz do repositorio.
-          scan-ref: ${{ matrix.service }}
-          severity: CRITICAL
-          exit-code: "1" # <<< REGRA DE BLOQUEIO
-          ignore-unfixed: true
-          format: table
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:${{ env.TRIVY_VERSION }} \
+            fs --severity CRITICAL --ignore-unfixed --format table \
+               --exit-code 1 "/repo/$SERVICE"
+          #    ^^^^^^^^^^^^^ REGRA DE BLOQUEIO: CRITICAL reprova o pipeline
 
       - name: 3b. SAST — codigo fonte (gosec)
         if: matrix.lang == 'go'
@@ -179,14 +181,16 @@ jobs:
 
       # Scan da imagem PRONTA: pega falha da imagem base (python:3.11-slim,
       # golang:1.21-alpine), que o scan do codigo-fonte nao enxerga.
+      # Monta o socket do Docker para o Trivy enxergar a imagem recem
+      # construida, que so existe no daemon local do runner.
       - name: Scan da imagem (Trivy)
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          image-ref: ${{ matrix.service }}:${{ steps.meta.outputs.tag }}
-          severity: CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
-          format: table
+        env:
+          IMG: ${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:${{ env.TRIVY_VERSION }} \
+            image --severity CRITICAL --ignore-unfixed --format table \
+                  --exit-code 1 "$IMG"
 
       # Credencial temporaria via OIDC — sem access key no repositorio.
       - name: Autenticar na AWS
