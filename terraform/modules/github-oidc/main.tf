@@ -26,9 +26,20 @@ locals {
 
   # Uma condição por repositório autorizado. O sufixo define QUEM pode
   # assumir: ":*" = qualquer branch/PR; "ref:refs/heads/main" = só a main.
-  allowed_subjects = [
-    for repo in var.github_repositories : "repo:${repo}:*"
-  ]
+  #
+  # Os "*" entre dono e repositorio NAO sao folga desnecessaria. Quando a
+  # opcao de identificadores imutaveis esta ativa, o GitHub envia o sub com
+  # os IDs numericos anexados:
+  #   repo:dono@317611638/repositorio@1340943424:ref:refs/heads/main
+  # Sem tolerar esses sufixos, o AssumeRoleWithWebIdentity e negado — e a
+  # mensagem ("Not authorized") nao diz que o problema e o formato do sub.
+  # O ID numerico e imutavel, entao renomear o repo nao burla a regra.
+  allowed_subjects = flatten([
+    for repo in var.github_repositories : [
+      "repo:${repo}:*",
+      "repo:${split("/", repo)[0]}@*/${split("/", repo)[1]}@*:*",
+    ]
+  ])
 
   oidc_arn = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : var.existing_oidc_provider_arn
 }

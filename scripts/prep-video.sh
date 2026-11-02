@@ -91,9 +91,14 @@ else
     info "  para automatizar:  export GITHUB_TOKEN=... (escopo repo)"
   fi
 
-  terraform -chdir=terraform/environments/dev apply -auto-approve -input=false \
-    -var="github_repositories=[\"$REPO\"]" \
-    -var="manage_github_variable=$GH_VAR" >/dev/null 2>&1
+  # A saida NAO e suprimida: silenciar o apply foi o que escondeu a falha
+  # da criacao da variavel e fez o script reportar sucesso indevidamente.
+  if ! terraform -chdir=terraform/environments/dev apply -auto-approve -input=false \
+       -var="github_repositories=[\"$REPO\"]" \
+       -var="manage_github_variable=$GH_VAR" 2>&1 | tail -6 | sed 's/^/      /'; then
+    nok "o terraform apply falhou (veja acima)"
+    FALHAS=$((FALHAS+1))
+  fi
 
   ARN=$(terraform -chdir=terraform/environments/dev output -raw github_actions_role_arn 2>/dev/null)
 
@@ -102,8 +107,16 @@ else
     FALHAS=$((FALHAS+1))
   else
     ok "role: $ARN"
-    if [ "$GH_VAR" = "true" ]; then
+    # Confere no STATE em vez de confiar na intencao: antes bastava o token
+    # existir para o script declarar sucesso, mesmo sem a variavel existir.
+    if [ "$GH_VAR" = "true" ] && terraform -chdir=terraform/environments/dev state list 2>/dev/null \
+         | grep -q "^github_actions_variable.aws_role_arn$"; then
       ok "variavel AWS_ROLE_ARN cadastrada no repositorio"
+    elif [ "$GH_VAR" = "true" ]; then
+      nok "a variavel NAO foi criada — o pipeline vai falhar em 'role-to-assume' vazio"
+      info "  cadastre manualmente: Settings > Secrets and variables > Actions > Variables"
+      info "  Nome: AWS_ROLE_ARN   Valor: $ARN"
+      FALHAS=$((FALHAS+1))
     else
       info "CADASTRE MANUALMENTE:"
       info "  GitHub > Settings > Secrets and variables > Actions > Variables"

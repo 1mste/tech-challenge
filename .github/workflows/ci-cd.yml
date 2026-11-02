@@ -30,7 +30,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  GO_VERSION: "1.21"
+  GO_VERSION: "1.25"
   PYTHON_VERSION: "3.11"
   TRIVY_VERSION: "0.65.0"
   GOSEC_VERSION: "2.24.6"
