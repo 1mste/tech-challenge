@@ -21,6 +21,14 @@ name: CI/CD DevSecOps Pipeline
 on:
   push:
     branches: [main, master]
+    # O job update-gitops commita em gitops/ ao final de cada execucao.
+    # Sem este paths-ignore, esse commit dispara o pipeline de novo — e a
+    # nova execucao grava uma tag derivada do commit DO BOT, para a qual
+    # nenhuma imagem foi construida. O resultado e ImagePullBackOff.
+    paths-ignore:
+      - "gitops/**"
+      - "docs/**"
+      - "**.md"
   pull_request:
     branches: [main, master]
 
