@@ -224,3 +224,37 @@ def delete_flag(name):
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 8002))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+# --- Rota com vulnerabilidade ---
+
+@app.route('/flags/search', methods=['GET'])
+def search_flags_insecure():
+    """ 
+    ROTA VULNERÁVEL PARA TESTE DE LINTER / SAST 
+    Vulnerabilidades inseridas propositalmente:
+    1. Sem o decorator @require_auth (Falta de autenticação/Controle de acesso)
+    2. SQL Injection através de concatenação direta na query f-string
+    """
+    # Pega o parâmetro da URL diretamente, sem tratamento
+    query_term = request.args.get('q', '')
+    
+    conn = None
+    cur = None
+    try:
+        conn = pool.getconn()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # PERIGO: Concatenação direta de string vulnerável a SQL Injection
+        # Ferramentas como Bandit (B608) vão acusar isso imediatamente.
+        query = f"SELECT * FROM flags WHERE name LIKE '%{query_term}%'"
+        
+        cur.execute(query)
+        flags = cur.fetchall()
+        return jsonify(flags)
+        
+    except Exception as e:
+        log.error(f"Erro na busca: {e}")
+        return jsonify({"error": "Erro interno", "details": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: pool.putconn(conn)
